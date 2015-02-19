@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Debug with editor": {
+      "commandName": "Executable",
+      "commandLineArgs": "editor SpreadSheet.TapPlan -c -v",
+      "workingDirectory": "./bin/Debug/netstandard2.0/",
+      "executablePath": "./tap.exe",
+      "dotnetRunMessages": true
+    }
+  }
+}
