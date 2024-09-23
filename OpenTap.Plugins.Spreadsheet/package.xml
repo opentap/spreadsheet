@@ -1,10 +1,11 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <Package Name="Spreadsheet" xmlns="http://keysight.com/Schemas/tap" Version="$(GitVersion)" OS="Windows">
+  <SourceUrl>https://github.com/opentap/spreadsheet</SourceUrl>
+  <SourceLicense>MIT</SourceLicense>
   <Description>
     This plugin is a result listener that allows results to be published to a spreadsheet document format (e.g. *.xls, *.xlsx). This plugin also supports templates to customize the output report by adding logos, graphs, summary sheets, etc. It requires minimal configuration, and it is designed to be flexible and easy to use.
     <Status>Released</Status>
     <Links>
-      <Link Description="Go to the GitHub repository" Name="GitHub Repository" Url="https://github.com/opentap/spreadsheet"/>
       <Link Description="Go to the documentation" Name="Documentation" Url="https://github.com/opentap/spreadsheet/tree/main/Documents"/>
     </Links>
     <Organisation>Keysight Technologies, Inc.</Organisation>
