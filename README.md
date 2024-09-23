@@ -10,4 +10,4 @@ __Prerequisites for installing the plugin__
 __Additional Information__
 
 - Getting started: https://github.com/opentap/spreadsheet/blob/main/Documents/GettingStarted/GettingStarted.md
-- Download link: https://packages.opentap.io/#name=%2FPackages%2FSpreadsheet&version=1.2.0%2Bbc4effb5&os=Windows&architecture=AnyCPU
+- Download link: https://packages.opentap.io/#name=%2FPackages%2FSpreadsheet
