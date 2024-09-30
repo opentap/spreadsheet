@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Package Name="OpenXML" xmlns="http://keysight.com/Schemas/tap" Version="$(GitVersion)" OS="Windows,Linux,OSX">
+  <SourceUrl></SourceUrl>
+  <SourceLicense>MIT</SourceLicense>
+  <Description>
+    This plugin is a result listener that allows results to be published to a spreadsheet document format (e.g. *.xls, *.xlsx). This plugin also supports templates to customize the output report by adding logos, graphs, summary sheets, etc.
+    <Status>Released</Status>
+    <Organisation>OpenTAP.</Organisation>
+    <Contacts>
+      tap.support@keysight.com
+    </Contacts>
+    <Prerequisites>None</Prerequisites>
+    <Hardware>None</Hardware>
+  </Description>
+  <Files>
+    <File Path="Packages/OpenTap.Plugins.Spreadsheet/OpenTap.Plugins.Spreadsheet.dll" SourcePath="OpenTap.Plugins.Spreadsheet.dll">
+		<SetAssemblyInfo Attributes="Version"/>
+	</File>
+  </Files>
+</Package>

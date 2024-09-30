@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <TargetName>OpenTap.Plugins.Spreadsheet</TargetName>
+        <DebugWith>Editor</DebugWith>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <AssemblyVersion>$(GitVersion)</AssemblyVersion>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <RootNamespace>Spreadsheet</RootNamespace>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <OpenTapPackageDefinitionPath>package.xml</OpenTapPackageDefinitionPath>
+        <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <CreateOpenTapPackage>true</CreateOpenTapPackage>
+    </PropertyGroup>
+    <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
+        <OpenTapPackageReference Include="Editor" />
+        <OpenTapPackageReference Include="Demonstration" />
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.0" />
+        <PackageReference Include="OpenTAP" Version="9.26.1" />
+    </ItemGroup>
+</Project>
