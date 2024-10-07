@@ -25,7 +25,7 @@ jobs:
           additional-repository: 'https://test-automation.pw.keysight.com/api/packages'
           additional-repository-token: '${{ secrets.KS8500_REPO_TOKEN }}'
       - run:
-          tap generate-chm "Documents/Readme.md" --out Help/SpreadsheetHelp.chm --title "OpenTap Spreadsheet Plugin Help" --startpage "Documents/Readme.md" --css "Documents/Style.css" --startpage-title "Spreadsheet Plugin Help"
+          tap generate-chm "Documents/Readme.md" --out Help/SpreadsheetHelp.chm --title "OpenTap Spreadsheet Plugin Help" --startpage "Documents/Settings.md" --css "Documents/Style.css" --startpage-title "Spreadsheet Plugin Help"
       - name: Fix tags
         shell: bash
         if: github.ref_type == 'tag'
