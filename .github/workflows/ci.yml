@@ -24,8 +24,8 @@ jobs:
           packages: 'DocumentationGeneration:1.0.2'
           additional-repository: 'https://test-automation.pw.keysight.com/api/packages'
           additional-repository-token: '${{ secrets.KS8500_REPO_TOKEN }}'
-      - run:
-          tap generate-chm "Documents/Readme.md" --out Help/SpreadsheetHelp.chm --title "OpenTap Spreadsheet Plugin Help" --startpage "Documents/Settings.md" --css "Documents/Style.css" --startpage-title "Spreadsheet Plugin Help"
+#      - run:
+#          tap generate-chm "Documents/Readme.md" --out Help/SpreadsheetHelp.chm --title "OpenTap Spreadsheet Plugin Help" --startpage "Documents/Settings.md" --css "Documents/Style.css" --startpage-title "Spreadsheet Plugin Help"
       - name: Fix tags
         shell: bash
         if: github.ref_type == 'tag'
