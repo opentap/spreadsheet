@@ -13,9 +13,9 @@ public sealed class Spreadsheet : IDisposable
     private readonly SpreadsheetDocument _document;
     private readonly WorkbookPart _workbook;
     private readonly WorksheetPart _worksheet;
-    private readonly Dictionary<string, SheetTab> _sheetList = new();
+    private readonly Dictionary<string?, SheetTab> _sheetList = new();
 
-    public Spreadsheet(string path, string planSheetName)
+    public Spreadsheet(string path, string planSheetName, bool includePlanSheet)
     {
         FilePath = Path.GetFullPath(path);
         string? dirPath = Path.GetDirectoryName(path);
@@ -26,8 +26,8 @@ public sealed class Spreadsheet : IDisposable
         _document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
         _workbook = _document.AddWorkbookPart();
         _workbook.Workbook = new Workbook();
-
-        PlanSheet = GetSheet(planSheetName);
+        
+        PlanSheet = includePlanSheet ? GetSheet(planSheetName) : GetSheet(planSheetName, true);
     }
     
     public string FilePath { get; }
@@ -43,11 +43,11 @@ public sealed class Spreadsheet : IDisposable
         }
     }
 
-    public SheetTab GetSheet(string name)
+    public SheetTab GetSheet(string name, bool neverInclude = false)
     {
         if (!_sheetList.TryGetValue(name, out SheetTab? sheet))
         {
-            sheet = new SheetTab(_workbook, name);
+            sheet = new SheetTab(_workbook, name, neverInclude);
             _sheetList.Add(name, sheet);
         }
 

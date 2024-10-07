@@ -18,9 +18,10 @@ public sealed class SheetTab
     private readonly Sheet _sheet;
     private bool _isAdded = false;
 
-    public SheetTab(WorkbookPart workbook, string name)
+    public SheetTab(WorkbookPart workbook, string name, bool neverInclude = false)
     {
         _workbook = workbook;
+        _isAdded = neverInclude;
         var worksheet =  workbook.AddNewPart<WorksheetPart>();
         worksheet.Worksheet = new Worksheet();
 
@@ -39,7 +40,6 @@ public sealed class SheetTab
             };
         }
         _sheet = sheet;
-
 
         // Get or create a new head row.
         Row? headRow = _sheetData.Elements<Row>().FirstOrDefault(r => (r.RowIndex?.HasValue ?? false ? r.RowIndex.Value : 0) == 0);
@@ -73,7 +73,7 @@ public sealed class SheetTab
         
         workbook.Workbook.Save();
     }
-
+    
     public void EnsureInclusion()
     {
         if (!_isAdded)
