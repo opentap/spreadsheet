@@ -21,10 +21,10 @@ public enum Include
     [Display("Column type prefix", "Include the prefix of columns. Example: 'Step/Verdict' => 'Verdict'.")]
     ColumnTypePrefix = 1 << 4,
     [Display("All", "Include everything.")]
-    All = 0b1111,
+    All = 0b11111,
 }
 
-[Display("OpenXML", "Save results in an excel file.", "Database")]
+[Display("Spreadsheet", "Save results in an excel file.", "Database")]
 public sealed class SpreadsheetResultListener : ResultListener
 {
     private static readonly Dictionary<string, Array> EmptyResults = new();
@@ -41,9 +41,9 @@ public sealed class SpreadsheetResultListener : ResultListener
 
     [Display("Open file", "Opens the file in your default spreadsheet program after plan run.", Order: 2)]
     public bool OpenFile { get; set; } = true;
-    
+
     [Display("Include", "Include parts of the data in the resulting file.", Order: 3)]
-    public Include Include { get; set; }
+    public Include Include { get; set; } = Include.All;
     
     private Spreadsheet? _spreadSheet;
 
