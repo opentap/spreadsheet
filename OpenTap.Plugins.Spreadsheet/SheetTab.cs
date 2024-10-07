@@ -22,6 +22,7 @@ public sealed class SheetTab
     {
         _workbook = workbook;
         _isAdded = neverInclude;
+        Name = name;
         var worksheet =  workbook.AddNewPart<WorksheetPart>();
         worksheet.Worksheet = new Worksheet();
 
@@ -73,6 +74,8 @@ public sealed class SheetTab
         
         workbook.Workbook.Save();
     }
+    
+    public string Name { get; }
     
     public void EnsureInclusion()
     {

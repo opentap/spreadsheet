@@ -10,6 +10,8 @@ namespace Spreadsheet;
 [Flags]
 public enum Include
 {
+    [Display("All", "Include everything.")]
+    All = 0b111111,
     [Display("Step parameters", "Include the parameters of steps.")]
     StepParameters = 1 << 0,
     [Display("Plan parameters", "Include the parameters of the test plan.")]
@@ -21,16 +23,22 @@ public enum Include
     [Display("Column type prefix", "Include the prefix of columns. Example: 'Step/Verdict' => 'Verdict'.")]
     ColumnTypePrefix = 1 << 4,
     [Display("Test plan sheet", "Include a first sheet with plan parameters and step parameters for steps without results.")]
-    TestPlanSheet = 1 << 5 | PlanParameters,
-    [Display("All", "Include everything.")]
-    All = 0b11111,
+    TestPlanSheet = 1 << 5,
+    [Display("None", "Include nothing in the spreadsheet (due to limitations with .xls files this wont generate a file at all).")]
+    None = 0,
 }
 
 public enum SplitBy
 {
+    [Display("Result name", "Split data into sheets by the name of result tables.")]
     ResultName,
+    [Display("Step name", "Split data into sheets by the name of steps.")]
     StepName,
+    [Display("Step run", "Split data into sheets by the id step runs.")]
     StepRun,
+    [Display("Step type", "Split data into sheets by the type of steps.")]
+    StepType,
+    [Display("No split", "Put all data into the plan sheet.")]
     NoSplit,
 }
 
@@ -55,6 +63,7 @@ public sealed class SpreadsheetResultListener : ResultListener
     [Display("Include", "Include parts of the data in the resulting file.", Order: 3)]
     public Include Include { get; set; } = Include.All;
 
+    [Display("Split by", "Decides how data will be divided into separate sheets.", Order: 4)]
     public SplitBy SplitBy { get; set; } = SplitBy.ResultName;
     
     private Spreadsheet? _spreadSheet;
@@ -72,9 +81,7 @@ public sealed class SpreadsheetResultListener : ResultListener
     public override void OnTestPlanRunStart(TestPlanRun planRun)
     {
         base.OnTestPlanRunStart(planRun);
-        _spreadSheet = new Spreadsheet(Path.Expand(),
-            Include.HasFlag(Include.RunId) ? planRun.Id.ToString().Substring(0, 8) : planRun.TestPlanName,
-            Include.HasFlag(Include.TestPlanSheet));
+        _spreadSheet = new Spreadsheet(Path.Expand(), GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet));
         GetSheet(planRun).AddRows(
             Include.HasFlag(Include.PlanParameters) ? CreateParameters("Plan", planRun) : CreateIdParameters(planRun),
             EmptyResults);
@@ -145,7 +152,7 @@ public sealed class SpreadsheetResultListener : ResultListener
         _parametersWritten.Add(stepRunId);
         base.OnResultPublished(stepRunId, result);
     }
-
+    
     private SheetTab GetSheet(TestRun run, ResultTable? table = null)
     {
         if (_spreadSheet is null)
@@ -153,20 +160,32 @@ public sealed class SpreadsheetResultListener : ResultListener
             throw new NullReferenceException();
         }
 
-        if (run is TestPlanRun)
+        return _spreadSheet.GetSheet(GetSheetName(run, table));
+    }
+    
+    private string GetSheetName(TestRun run, ResultTable? table = null)
+    {
+        if (run is TestPlanRun planRun)
         {
-            return _spreadSheet.PlanSheet;
+            return Include.HasFlag(Include.RunId) ? planRun.Id.ToString().Substring(0, 8) : planRun.TestPlanName;
         }
+        
+        if (_spreadSheet is null)
+        {
+            throw new NullReferenceException();
+        }
+
+        TestStepRun? stepRun = run as TestStepRun;
         
         return SplitBy switch
         {
-            SplitBy.ResultName when table is null => _spreadSheet.PlanSheet,
-            SplitBy.ResultName => _spreadSheet.GetSheet(table.Name),
-            SplitBy.StepName when run is TestStepRun stepRun => _spreadSheet.GetSheet(stepRun.TestStepName),
+            SplitBy.ResultName when table is not null => table.Name,
+            SplitBy.StepName when stepRun is not null => stepRun.TestStepName,
             // Tabs cannot be more than 31 characters long. So we just get the first 8 for the tab names.
-            SplitBy.StepRun => _spreadSheet.GetSheet(run.Id.ToString().Substring(0, 8)),
-            SplitBy.NoSplit => _spreadSheet.PlanSheet,
-            _ => throw new ArgumentOutOfRangeException()
+            SplitBy.StepRun => run.Id.ToString().Substring(0, 8),
+            SplitBy.StepType when stepRun is not null => stepRun.TestStepTypeName,
+            SplitBy.NoSplit => _spreadSheet.PlanSheet.Name,
+            _ => _spreadSheet.PlanSheet.Name,
         };
     }
 
