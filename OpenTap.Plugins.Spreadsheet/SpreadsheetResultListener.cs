@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using OpenTap;
 
 namespace Spreadsheet;
@@ -108,7 +109,29 @@ public sealed class SpreadsheetResultListener : ResultListener
 
         if (OpenFile)
         {
-            Process.Start(path);
+            try
+            {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    Process.Start("xdg-open", path);
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    Process.Start("open", path);
+                }
+                else
+                {
+                    Log.Warning("This platform does not support automatically opening the spreadsheet.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Something went wrong trying to open your file. {ex.Message}");
+            }
         }
     }
 
