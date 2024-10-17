@@ -24,8 +24,6 @@ public enum Include
     ColumnTypePrefix = 1 << 4,
     [Display("Test plan sheet", "Include a first sheet with plan parameters and step parameters for steps without results.")]
     TestPlanSheet = 1 << 5,
-    [Display("None", "Include nothing in the spreadsheet (due to limitations with .xls files this wont generate a file at all).")]
-    None = 0,
 }
 
 public enum SplitBy
@@ -81,7 +79,7 @@ public sealed class SpreadsheetResultListener : ResultListener
     public override void OnTestPlanRunStart(TestPlanRun planRun)
     {
         base.OnTestPlanRunStart(planRun);
-        _spreadSheet = new Spreadsheet(Path.Expand(), GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet));
+        _spreadSheet = new Spreadsheet(Path.Expand(planRun), GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet));
         GetSheet(planRun).AddRows(
             Include.HasFlag(Include.PlanParameters) ? CreateParameters("Plan", planRun) : CreateIdParameters(planRun),
             EmptyResults);
@@ -167,7 +165,7 @@ public sealed class SpreadsheetResultListener : ResultListener
     {
         if (run is TestPlanRun planRun)
         {
-            return Include.HasFlag(Include.RunId) ? planRun.Id.ToString().Substring(0, 8) : planRun.TestPlanName;
+            return SplitBy.HasFlag(SplitBy.StepRun) ? planRun.Id.ToString().Substring(0, 8) : planRun.TestPlanName;
         }
         
         if (_spreadSheet is null)
