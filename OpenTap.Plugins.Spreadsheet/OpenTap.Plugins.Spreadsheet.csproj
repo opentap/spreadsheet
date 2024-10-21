@@ -2,7 +2,6 @@
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
         <TargetName>OpenTap.Plugins.Spreadsheet</TargetName>
-        <DebugWith>Editor</DebugWith>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <AssemblyVersion>$(GitVersion)</AssemblyVersion>
@@ -18,8 +17,8 @@
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <CreateOpenTapPackage>true</CreateOpenTapPackage>
     </PropertyGroup>
-    <ItemGroup Condition="'$(DebugWith)' == 'Editor CE' and '$(Configuration)' == 'Debug'">
-        <OpenTapPackageReference Include="Editor" />
+    <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+        <OpenTapPackageReference Include="TUI" />
         <OpenTapPackageReference Include="Demonstration" />
     </ItemGroup>
     <ItemGroup>
