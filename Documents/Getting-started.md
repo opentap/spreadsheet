@@ -1,4 +1,4 @@
-# Getting started
+# Getting Started
 
 ## Using the Spreadsheet Result Listener
 This section goes through how to add a spreadsheet result listener to your test plan to use it later using a GUI.
@@ -26,7 +26,7 @@ This section goes through how to add a spreadsheet result listener to your test 
 
 For more information on how to use OpenTAP you can take a look at the [OpenTAP docs](https://doc.opentap.io/User%20Guide/Introduction/Readme.html)
 
-## Generating results
+## Generating Results
 > prerequisite: [Using the spreadsheet Result Listener](#using-the-spreadsheet-result-listener)
 
 This section goes through how to run a test plan and include some example data.

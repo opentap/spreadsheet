@@ -1,10 +1,10 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
-<Package Name="Spreadsheet" xmlns="http://opentap.io/schemas/package" Version="$(GitVersion)" OS="Windows,Linux,MacOs">
+<Package Name="Spreadsheet" xmlns="http://opentap.io/schemas/package" Version="$(GitVersion)" OS="Windows,Linux,MacOS">
   <SourceUrl>https://github.com/opentap/spreadsheet</SourceUrl>
   <Links>
     <Link Description="Go to the GitHub repository" Name="GitHub Repository" Url="https://github.com/opentap/spreadsheet"/>
-    <Link Description="Go to the settings documentation" Name="GitHub Repository" Url="https://github.com/opentap/spreadsheet/tree/main/Documents/Settings"/>
-    <Link Description="Go to the getting started documentation" Name="GitHub Repository" Url="https://github.com/opentap/spreadsheet/tree/main/Documents/Getting-Started"/>
+    <Link Description="Go to the getting started documentation" Name="Getting Started Documentation" Url="https://github.com/opentap/spreadsheet/tree/main/Documents/Getting-Started"/>
+    <Link Description="Go to the settings documentation" Name="Settings Documentation" Url="https://github.com/opentap/spreadsheet/tree/main/Documents/Settings"/>
   </Links>
   <SourceLicense>MIT</SourceLicense>
   <Description>
