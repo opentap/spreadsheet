@@ -17,33 +17,44 @@ public sealed class SheetTab
     private readonly Dictionary<string, Column> _columnNameToColumn;
     private readonly Sheet _sheet;
     private bool _isAdded = false;
+    private readonly bool _allowNewColumns;
 
-    public SheetTab(WorkbookPart workbook, string name, bool neverInclude = false)
+    public SheetTab(WorkbookPart workbook, string name, bool neverInclude = false, bool allowNewColumns = true)
     {
         _workbook = workbook;
         _isAdded = neverInclude;
+        _allowNewColumns = allowNewColumns;
         Name = name;
-        var worksheet =  workbook.AddNewPart<WorksheetPart>();
-        worksheet.Worksheet = new Worksheet();
-
-        _columns = worksheet.Worksheet.GetFirstChild<Columns>() ?? worksheet.Worksheet.AppendChild(new Columns());
-        _sheetData = worksheet.Worksheet.GetFirstChild<SheetData>() ?? worksheet.Worksheet.AppendChild(new SheetData());
-        Sheets sheets = _workbook.Workbook.GetFirstChild<Sheets>() ?? _workbook.Workbook.AppendChild(new Sheets());
 
         // Get or create a new sheet.
+        Sheets sheets = _workbook.Workbook.GetFirstChild<Sheets>() ?? _workbook.Workbook.AppendChild(new Sheets());
         Sheet? sheet = sheets.Elements<Sheet>().FirstOrDefault(s => s.Name == name);
         if (sheet is null)
         {
             sheet = new Sheet()
             {
-                Id = workbook.GetIdOfPart(worksheet),
                 Name = name,
             };
         }
+
+        WorksheetPart? worksheet = workbook.WorksheetParts.FirstOrDefault(w => workbook.GetIdOfPart(w) == sheet.Id);
+        if (worksheet is null)
+        {
+            worksheet = workbook.AddNewPart<WorksheetPart>();
+            worksheet.Worksheet = new Worksheet();
+        }
+
+        if (sheet.Id is null)
+        {
+            sheet.Id = workbook.GetIdOfPart(worksheet);
+        }
+
         _sheet = sheet;
+        _columns = worksheet.Worksheet.GetFirstChild<Columns>() ?? worksheet.Worksheet.AppendChild(new Columns());
+        _sheetData = worksheet.Worksheet.GetFirstChild<SheetData>() ?? worksheet.Worksheet.AppendChild(new SheetData());
 
         // Get or create a new head row.
-        Row? headRow = _sheetData.Elements<Row>().FirstOrDefault(r => (r.RowIndex?.HasValue ?? false ? r.RowIndex.Value : 0) == 0);
+        Row? headRow = _sheetData.Elements<Row>().FirstOrDefault(r => (r.RowIndex?.HasValue ?? false ? r.RowIndex.Value : 0) == 1);
         if (headRow is null)
         {
             uint rowIndex = _sheetData.Elements<Row>()
@@ -59,7 +70,6 @@ public sealed class SheetTab
         _headRow = headRow;
         
         // Add existing cells to column list.
-        uint index = 0;
         _columnNameToIndex = new ();
         _columnNameToColumn = new Dictionary<string, Column>();
         foreach (Cell? cell in _headRow.Elements<Cell>())
@@ -68,8 +78,16 @@ public sealed class SheetTab
             {
                 continue;
             }
-            ParseReference(cell.CellReference, out _, out uint row);
-            _columnNameToIndex.Add(cell.InnerText, row);
+            ParseReference(cell.CellReference, out uint col, out _);
+            string colName = GetCellValue(cell);
+            _columnNameToIndex.Add(colName, col);
+            Column column = _columns.Elements<Column>().FirstOrDefault(c => (c?.Min ?? 0) <= col && col <= (c?.Max ?? 0)) ??
+                            _columns.AppendChild(new Column()
+                            {
+                                Min = col,
+                                Max = col,
+                            });
+            _columnNameToColumn.Add(colName, column);
         }
         
         workbook.Workbook.Save();
@@ -123,6 +141,7 @@ public sealed class SheetTab
             rowIndex += 1;
             _sheetData.Append(rows[i]);
         }
+        
         foreach (KeyValuePair<string, Array> keyValuePair in results)
         {
             string name = keyValuePair.Key;
@@ -140,7 +159,11 @@ public sealed class SheetTab
 
     private void AddCell(string columnName, uint rowIndex, Row row, object value)
     {
-        uint columnIndex = GetColumnIndex(columnName);
+        if (!TryGetColumnIndex(columnName, out uint columnIndex))
+        {
+            return;
+        }
+        
         string cellReference = CreateCellReference(columnIndex, rowIndex);
         Cell cell = new Cell()
         {
@@ -159,11 +182,16 @@ public sealed class SheetTab
         row.InsertBefore(cell, referenceCell);
     }
 
-    private uint GetColumnIndex(string name)
+    private bool TryGetColumnIndex(string name, out uint index)
     {
-        if (!_columnNameToIndex.TryGetValue(name, out uint index))
+        if (_columnNameToIndex.TryGetValue(name, out index))
         {
-            index = (uint)_columnNameToIndex.Count;
+            return true;
+        }
+        
+        if (_allowNewColumns)
+        {
+            index = (uint)_columnNameToIndex.Count + 1;
             _columnNameToIndex.Add(name, index);
             string cellReference = CreateCellReference(index, _headRow.RowIndex ?? 1);
             Cell cell = new Cell()
@@ -175,21 +203,23 @@ public sealed class SheetTab
 
             Column column = new Column()
             {
-                Min = index + 1,
-                Max = index + 1,
+                Min = index,
+                Max = index,
                 Width = name.Length,
                 CustomWidth = true,
             };
             _columns.Append(column);
             _columnNameToColumn.Add(name, column);
+            return true;
         }
-        return index;
+
+        return false;
     }
 
-    private string CreateCellReference(uint columnIndex, uint rowIndex)
+    private static string CreateCellReference(uint columnIndex, uint rowIndex)
     {
         const uint max = 'Z' - 'A' + 1;
-        string reference = (char)('A' + columnIndex % max) + "";
+        string reference = (char)('A' + (columnIndex - 1) % max) + "";
         if (columnIndex >= max)
         {
             reference = (char)('A' + columnIndex / max - 1) + reference;
@@ -228,45 +258,63 @@ public sealed class SheetTab
         }
     }
 
-    private int SetValue(Cell cell, object o)
+    private string GetCellValue(Cell cell)
+    {
+        if (cell.DataType is null)
+        {
+            return cell.CellValue?.Text ?? "";
+        }
+        if (cell.DataType == CellValues.SharedString && (cell.CellValue?.TryGetInt(out int index) ?? false))
+        {
+            SharedStringTable stringTable = _workbook.SharedStringTablePart?.SharedStringTable ??
+                                            (_workbook.AddNewPart<SharedStringTablePart>().SharedStringTable = new SharedStringTable());
+
+            SharedStringItem stringItem = stringTable.Elements<SharedStringItem>().Skip(index).Take(1).First();
+            return stringItem.Text?.Text ?? "";
+        }
+
+        return cell.CellValue?.Text ?? "";
+    }
+
+    private static int SetValue(Cell cell, object o)
     {
         switch (o)
         {
             case int i:
                 cell.CellValue = new CellValue(i);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Number);
+                cell.DataType = CellValues.Number;
                 break;
             case float f:
                 cell.CellValue = new CellValue(f);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Number);
+                cell.DataType = CellValues.Number;
                 break;
             case double d:
                 cell.CellValue = new CellValue(d);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Number);
+                cell.DataType = CellValues.Number;
                 break;
             case decimal d:
                 cell.CellValue = new CellValue(d);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Number);
+                cell.DataType = CellValues.Number;
                 break;
             case bool b:
                 cell.CellValue = new CellValue(b);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Boolean);
+                cell.DataType = CellValues.Boolean;
                 break;
             case string s:
                 cell.CellValue = new CellValue(s);
-                cell.DataType = new EnumValue<CellValues>(CellValues.String);
+                cell.DataType = CellValues.String;
                 break;
             case DateTime dt:
                 cell.CellValue = new CellValue(dt);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Date);
+                cell.DataType = CellValues.Date;
                 break;
             case DateTimeOffset dto:
                 cell.CellValue = new CellValue(dto);
-                cell.DataType = new EnumValue<CellValues>(CellValues.Date);
+                cell.DataType = CellValues.Date;
                 break;
             default:
                 cell.CellValue = new CellValue(o.ToString());
-                cell.DataType = new EnumValue<CellValues>(CellValues.String);
+                cell.DataType = CellValues.String;
                 break;
         }
 

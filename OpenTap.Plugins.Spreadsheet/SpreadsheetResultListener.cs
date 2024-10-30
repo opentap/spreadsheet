@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using DocumentFormat.OpenXml.Presentation;
 using OpenTap;
 
 namespace Spreadsheet;
@@ -44,6 +45,13 @@ public sealed class SpreadsheetResultListener : ResultListener
     {
         Text = "Results/<Date>-<Verdict>.xlsx"
     };
+    
+    [Display("Template path", "The path to a template of how to write the results.", Order: 1)]
+    [FilePath(FilePathAttribute.BehaviorChoice.Open, "xls?")]
+    public MacroString TemplatePath { get; set; } = new MacroString()
+    {
+        Text = ""
+    };
 
     [Display("Open file", "Opens the file in your default spreadsheet program after plan run.", Order: 2)]
     public bool OpenFile { get; set; } = true;
@@ -72,7 +80,20 @@ public sealed class SpreadsheetResultListener : ResultListener
     public override void OnTestPlanRunStart(TestPlanRun planRun)
     {
         base.OnTestPlanRunStart(planRun);
-        _spreadSheet = new Spreadsheet(Path.Expand(planRun), GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet));
+        string templatePath = TemplatePath.Expand(planRun);
+        string filePath = Path.Expand(planRun);
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+
+        bool isTemplate = !string.IsNullOrWhiteSpace(templatePath);
+        if (isTemplate)
+        {
+            File.Copy(templatePath, filePath);
+        }
+        _spreadSheet = new Spreadsheet(filePath, GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet), isTemplate);
+        
         GetSheet(planRun).AddRows(
             Include.HasFlag(Include.PlanParameters) ? CreateParameters("Plan", planRun) : CreateIdParameters(planRun),
             EmptyResults);

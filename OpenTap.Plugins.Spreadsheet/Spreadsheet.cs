@@ -14,20 +14,33 @@ public sealed class Spreadsheet : IDisposable
     private readonly WorkbookPart _workbook;
     private readonly WorksheetPart _worksheet;
     private readonly Dictionary<string?, SheetTab> _sheetList = new();
+    private readonly bool _isTemplate;
 
-    public Spreadsheet(string path, string planSheetName, bool includePlanSheet)
+    public Spreadsheet(string path, string planSheetName, bool includePlanSheet, bool isTemplate)
     {
+        _isTemplate = isTemplate;
         FilePath = Path.GetFullPath(path);
         string? dirPath = Path.GetDirectoryName(path);
         if (dirPath is not null && !Directory.Exists(dirPath))
         {
             Directory.CreateDirectory(dirPath);
         }
-        _document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
-        _workbook = _document.AddWorkbookPart();
-        _workbook.Workbook = new Workbook();
+
+        if (isTemplate)
+        {
+            _document = SpreadsheetDocument.Open(path, true);
+        }
+        else
+        {
+            _document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
+        }
+        if (_document.WorkbookPart is null)
+        {
+            _document.AddWorkbookPart().Workbook = new Workbook();
+        }
+        _workbook = _document.WorkbookPart!;
         
-        PlanSheet = includePlanSheet ? GetSheet(planSheetName) : GetSheet(planSheetName, true);
+        PlanSheet = GetSheet(planSheetName, !includePlanSheet);
     }
     
     public string FilePath { get; }
@@ -47,7 +60,7 @@ public sealed class Spreadsheet : IDisposable
     {
         if (!_sheetList.TryGetValue(name, out SheetTab? sheet))
         {
-            sheet = new SheetTab(_workbook, name, neverInclude);
+            sheet = new SheetTab(_workbook, name, neverInclude || _isTemplate, !_isTemplate);
             _sheetList.Add(name, sheet);
         }
 
