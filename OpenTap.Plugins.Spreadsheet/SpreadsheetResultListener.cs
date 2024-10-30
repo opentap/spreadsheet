@@ -125,22 +125,33 @@ public sealed class SpreadsheetResultListener : ResultListener
         {
             try
             {
+                path = '"' + path + '"';
+                Process? process = null;
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                    Log.Info($"Windows detected, opening file \"{path}\"");
+                    process = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
                 {
-                    Process.Start("xdg-open", path);
+                    Log.Info($"Linux detected, running \"xdg-open '{path}'\"");
+                    process = Process.Start("xdg-open", path);
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
-                    Process.Start("open", path);
+                    Log.Info($"OSX detected, running \"open '{path}'\"");
+                    process = Process.Start("open", path);
                 }
                 else
                 {
                     Log.Warning("This platform does not support automatically opening the spreadsheet.");
                 }
+
+                if ((process?.HasExited ?? false) && process.ExitCode == 0)
+                {
+                    Log.Warning($"Process exited with code {process.ExitCode}");
+                }
+                
             }
             catch (Exception ex)
             {
