@@ -220,11 +220,11 @@ public sealed class SheetTab
     {
         const uint max = 'Z' - 'A' + 1;
         string reference = (char)('A' + (columnIndex - 1) % max) + "";
-        if (columnIndex >= max)
+        if (columnIndex > max)
         {
             reference = (char)('A' + columnIndex / max - 1) + reference;
         }
-        if (columnIndex >= max * max)
+        if (columnIndex > max * max)
         {
             reference = (char)('A' + columnIndex / (max * max) - 1) + reference;
         }
