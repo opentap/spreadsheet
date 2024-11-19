@@ -21,7 +21,7 @@ public sealed class Spreadsheet : IDisposable
         _isTemplate = isTemplate;
         FilePath = Path.GetFullPath(path);
         string? dirPath = Path.GetDirectoryName(path);
-        if (dirPath is not null && !Directory.Exists(dirPath))
+        if (!string.IsNullOrWhiteSpace(dirPath) && !Directory.Exists(dirPath))
         {
             Directory.CreateDirectory(dirPath);
         }
