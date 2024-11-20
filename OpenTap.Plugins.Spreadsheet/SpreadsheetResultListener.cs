@@ -225,7 +225,7 @@ public sealed class SpreadsheetResultListener : ResultListener
         return _spreadSheet.GetSheet(GetSheetName(planRun, stepRun, table));
     }
     
-    private string GetSheetName(TestPlanRun planRun, TestStepRun? stepRun = null, ResultTable? table = null)
+    private string GetSheetName(TestPlanRun? planRun, TestStepRun? stepRun = null, ResultTable? table = null)
     {
         Dictionary<string, object> parameters = new Dictionary<string, object>();
         if (stepRun is not null)
@@ -237,7 +237,7 @@ public sealed class SpreadsheetResultListener : ResultListener
             parameters.Add("StepType", stepTypeFull.Substring(stepTypeFull.LastIndexOf('.') + 1));
             parameters.Add("StepTypeFull", stepTypeFull);
         }
-        else
+        else if (planRun is not null)
         {
             parameters.Add("RunId", planRun.Id);
             parameters.Add("StepId", planRun.Id);
@@ -254,7 +254,25 @@ public sealed class SpreadsheetResultListener : ResultListener
         else
         {
             parameters.Add("ResultName", planRun.TestPlanName);
+        } 
+
+        if (stepRun != null)
+        {
+            foreach (var stepParam in stepRun.Parameters)
+            {
+                if (!parameters.ContainsKey(stepParam.Name))
+                    parameters.Add(stepParam.Name, stepParam.Value);
+            }
         }
+        
+        if (planRun != null)
+        {
+            foreach (var planParam in planRun.Parameters)
+            {
+                if (!parameters.ContainsKey(planParam.Name))
+                    parameters.Add(planParam.Name, planParam.Value);
+            }
+        } 
 
         string sheetName = SheetName.Expand(planRun, stepRun?.StartTime, null, parameters);
 
