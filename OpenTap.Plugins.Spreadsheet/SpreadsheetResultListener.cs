@@ -372,6 +372,29 @@ public sealed class SpreadsheetResultListener : ResultListener
             if (!parameters.ContainsKey(name))
                 parameters.Add(name, parameter.Value);
         }
+
+        if (run is TestStepRun steprun)
+        {
+            TestRun? parentRun = null;
+            if (_stepRuns.TryGetValue(steprun.Parent, out var parentStepRun))
+            {
+                parentRun = parentStepRun;
+            }
+            else if (Include.HasFlag(Include.PlanParameters) && _planRuns.TryGetValue(steprun.Parent, out var planRun))
+            {
+                parentRun = planRun;
+            }
+
+            if (parentRun != null)
+            {
+                var parentParams = CreateParameters("Plan", parentRun, table);
+                foreach (var kvp in parentParams)
+                {
+                    if (!parameters.ContainsKey(kvp.Key))
+                        parameters.Add(kvp.Key, kvp.Value);
+                }
+            }
+
         }
         return parameters;
     }
