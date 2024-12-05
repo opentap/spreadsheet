@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using DocumentFormat.OpenXml.Presentation;
 using OpenTap;
 
 namespace Spreadsheet;
@@ -12,58 +11,70 @@ namespace Spreadsheet;
 [Flags]
 public enum Include
 {
-    [Display("All", "Include everything.", Order: 0)]
-    All = 0b111111,
-    [Display("None", "Don't include anything.", Order: 1)]
-    None = 0,
-    [Display("Step parameters", "Include the parameters of steps.", Order: 2)]
+    [Display("Step Parameters", "Include the parameters of steps.", Order: 2)]
     StepParameters = 1 << 0,
-    [Display("Plan parameters", "Include the parameters of the test plan.", Order: 3)]
+    [Display("Plan Parameters", "Include the parameters of the test plan.", Order: 3)]
     PlanParameters = 1 << 1,
     [Display("Results", "Include all results.", Order: 4)]
     Results = 1 << 2,
-    [Display("Run id", "Include the run id of all steps and the test plan.", Order: 5)]
+    [Display("Run Id", "Include the run id of all steps and the test plan.", Order: 5)]
     RunId = 1 << 3,
-    [Display("Column type prefix", "Include the prefix of columns. Example: 'Step/Verdict' => 'Verdict'.", Order: 6)]
-    ColumnTypePrefix = 1 << 4,
-    [Display("Test plan sheet", "Include a first sheet with plan parameters and step parameters for steps without results.", Order: 7)]
-    TestPlanSheet = 1 << 5,
 }
 
-[Display("Spreadsheet", "Save results in a spreadsheet.", "Database")]
+[Display("Spreadsheet", "Save results in a spreadsheet.", "Text")]
 public sealed class SpreadsheetResultListener : ResultListener
 {
     private static readonly Dictionary<string, Array> EmptyResults = new();
     
     private readonly Dictionary<Guid, TestStepRun> _stepRuns = new();
     private readonly Dictionary<Guid, TestPlanRun> _planRuns = new();
-    private readonly HashSet<Guid> _parametersWritten = new();
     
-    [Display("Filename", "The name of the spreadsheet where the results are written.", Order: 1)]
+    [Display("Filename", "The name of the spreadsheet file where the results are written.", Order: 1)]
     [FilePath(FilePathAttribute.BehaviorChoice.Open, "xls?")]
     public MacroString Path { get; set; } = new MacroString()
     {
         Text = "Results/<Date>-<Verdict>.xlsx"
     };
     
-    [Display("Template path", "The path to a template of how to write the results.", Order: 1)]
+    [Display("Template Path", "Base the result sheet on an existing document.", Order: 1.2)]
     [FilePath(FilePathAttribute.BehaviorChoice.Open, "xls?")]
     public MacroString TemplatePath { get; set; } = new MacroString()
     {
         Text = ""
     };
+    
+    public enum FileExistsBehavior
+    {
+        [Display("Abort Testplan", Description:"Stop the test plan with an Error verdict if the file exists.")]
+        FailWithError,
+        [Display("Overwrite", Description:"Overwrite the existing file.")]
+        OverwriteExisting,
+        [Display("Append", Description:"Append new data to the end of the existing file.")]
+        Append,
+    }
 
-    [Display("Open file", "Opens the file in your default spreadsheet program after plan run.", Order: 2)]
-    public bool OpenFile { get; set; } = true;
+    [Display("Overwrite Behavior", "What should happen if the file already exists.", Order: 1.1)]
+    public FileExistsBehavior OverwriteBehavior { get; set; } = FileExistsBehavior.FailWithError; 
 
-    [Display("Include", "Include parts of the data in the resulting file.", Order: 3)]
-    public Include Include { get; set; } = Include.All;
+    [Display("Runs Summary Sheet", "Include a sheet with all runs and their parameters.", Order: 10)]
+    public bool RunSummarySheetEnabled { get; set; } = true;
 
-    [Display("Sheet name", "Decides how data will be divided into separate sheets.", Order: 4)]
+    [Display("Use Full Column Names",
+        "Column headers will be fully qualified. E.g. the Verdict parameter from a step will become 'Step/Verdict'.",
+        Order: 11)]
+    public bool FullColumnHeaderName { get; set; } = true;
+
+    [Display("Sheet Name", "The name of the sheet where results are written.", Order: 4)]
     public MacroString SheetName { get; set; } = new MacroString()
     {
         Text = "<ResultName>",
     };
+    
+    [Display("Results to Include", "The results that will be saved in the sheet.", Order: 4.1)]
+    public Include Include { get; set; } = Include.PlanParameters | Include.StepParameters | Include.Results | Include.RunId;
+
+    [Display("Open File After Run", "Opens the file in your default spreadsheet program after plan run.", Order: 99)]
+    public bool OpenFile { get; set; } = true;
     
     private Spreadsheet? _spreadSheet;
 
@@ -79,12 +90,21 @@ public sealed class SpreadsheetResultListener : ResultListener
 
     public override void OnTestPlanRunStart(TestPlanRun planRun)
     {
+        _planRuns.Clear();
+        _stepRuns.Clear();
         base.OnTestPlanRunStart(planRun);
         string templatePath = TemplatePath.Expand(planRun);
         string filePath = Path.Expand(planRun);
         if (File.Exists(filePath))
         {
-            File.Delete(filePath);
+            if (OverwriteBehavior == FileExistsBehavior.FailWithError)
+            {
+                throw new Exception($"The result sheet file '{filePath}' already exists.");
+            } 
+            if (OverwriteBehavior == FileExistsBehavior.OverwriteExisting)
+            {
+                File.Delete(filePath);
+            }
         }
 
         bool isTemplate = !string.IsNullOrWhiteSpace(templatePath);
@@ -92,11 +112,10 @@ public sealed class SpreadsheetResultListener : ResultListener
         {
             File.Copy(templatePath, filePath);
         }
-        _spreadSheet = new Spreadsheet(filePath, GetSheetName(planRun), Include.HasFlag(Include.TestPlanSheet), isTemplate);
+        _spreadSheet = new Spreadsheet(filePath, RunSummarySheetEnabled, isTemplate);
         
-        GetSheet(planRun).AddRows(
-            Include.HasFlag(Include.PlanParameters) ? CreateParameters("Plan", planRun) : CreateIdParameters(planRun),
-            EmptyResults);
+        if (RunSummarySheetEnabled)
+            _spreadSheet.PlanSheet.AddRows(CreateParameters("Plan", planRun), EmptyResults);
         _planRuns[planRun.Id] = planRun;
     }
 
@@ -112,7 +131,7 @@ public sealed class SpreadsheetResultListener : ResultListener
         if (_spreadSheet.FileEmpty)
         {
             _spreadSheet.Dispose();
-            Log.Warning("Created spreadsheet is empty, deleting file. Maybe check if you excluded too much.");
+            Log.Warning("Result spreadsheet is empty. Deleting file.");
             File.Delete(path);
             return;
         }
@@ -179,14 +198,8 @@ public sealed class SpreadsheetResultListener : ResultListener
             throw new NullReferenceException();
         }
 
-        TestPlanRun planRun = _planRuns[stepRun.Id];
-        
-        if (!_parametersWritten.Contains(stepRun.Id))
-        {
-            GetSheet(planRun, stepRun).AddRows(
-                Include.HasFlag(Include.StepParameters) ? CreateParameters("Step", stepRun) : CreateIdParameters(stepRun),
-                EmptyResults);
-        }
+        if (RunSummarySheetEnabled)
+            _spreadSheet.PlanSheet.AddRows(CreateParameters("Step", stepRun), EmptyResults);
         
         base.OnTestStepRunCompleted(stepRun);
     }
@@ -199,7 +212,6 @@ public sealed class SpreadsheetResultListener : ResultListener
         sheet.AddRows(
             Include.HasFlag(Include.StepParameters) ? CreateParameters("Step", stepRun, result) : CreateIdParameters(stepRun, result),
             Include.HasFlag(Include.Results) ? CreateResults(result) : EmptyResults);
-        _parametersWritten.Add(stepRunId);
         base.OnResultPublished(stepRunId, result);
     }
     
@@ -213,7 +225,7 @@ public sealed class SpreadsheetResultListener : ResultListener
         return _spreadSheet.GetSheet(GetSheetName(planRun, stepRun, table));
     }
     
-    private string GetSheetName(TestPlanRun planRun, TestStepRun? stepRun = null, ResultTable? table = null)
+    private string GetSheetName(TestPlanRun? planRun, TestStepRun? stepRun = null, ResultTable? table = null)
     {
         Dictionary<string, object> parameters = new Dictionary<string, object>();
         if (stepRun is not null)
@@ -225,7 +237,7 @@ public sealed class SpreadsheetResultListener : ResultListener
             parameters.Add("StepType", stepTypeFull.Substring(stepTypeFull.LastIndexOf('.') + 1));
             parameters.Add("StepTypeFull", stepTypeFull);
         }
-        else
+        else if (planRun is not null)
         {
             parameters.Add("RunId", planRun.Id);
             parameters.Add("StepId", planRun.Id);
@@ -242,10 +254,28 @@ public sealed class SpreadsheetResultListener : ResultListener
         else
         {
             parameters.Add("ResultName", planRun.TestPlanName);
+        } 
+
+        if (stepRun != null)
+        {
+            foreach (var stepParam in stepRun.Parameters)
+            {
+                if (!parameters.ContainsKey(stepParam.Name))
+                    parameters.Add(stepParam.Name, stepParam.Value);
+            }
         }
+        
+        if (planRun != null)
+        {
+            foreach (var planParam in planRun.Parameters)
+            {
+                if (!parameters.ContainsKey(planParam.Name))
+                    parameters.Add(planParam.Name, planParam.Value);
+            }
+        } 
 
         string sheetName = SheetName.Expand(planRun, stepRun?.StartTime, null, parameters);
-        
+
         /*  From microsoft docs.
          * https://support.microsoft.com/en-gb/office/rename-a-worksheet-3f1f7148-ee83-404d-8ef0-9ff99fbad1f9#:~:text=Important%3A%20Worksheet%20names%20cannot%3A,Contain%20more%20than%2031%20characters.
          * Important:  Worksheet names cannot:
@@ -288,13 +318,13 @@ public sealed class SpreadsheetResultListener : ResultListener
         {
             sheetName = ".History";
         }
-        
+
         return sheetName;
     }
 
     private Dictionary<string, Array> CreateResults(ResultTable result)
     {
-        if (Include.HasFlag(Include.ColumnTypePrefix))
+        if (FullColumnHeaderName)
         {
             return result.Columns.ToDictionary(c => "Results/" + c.Name, c => c.Data);
         }
@@ -330,20 +360,41 @@ public sealed class SpreadsheetResultListener : ResultListener
 
     private Dictionary<string, object> CreateParameters(string prefix, TestRun run, ResultTable? table = null)
     {
-        if (!Include.HasFlag(Include.ColumnTypePrefix))
-        {
-            prefix = "";
-        }
-
         Dictionary<string, object> parameters = CreateIdParameters(run, table);
 
         foreach (ResultParameter parameter in run.Parameters)
         {
-            string name = (!string.IsNullOrWhiteSpace(prefix) ? prefix + "/" : "") +
-                          (!string.IsNullOrWhiteSpace(parameter.Group) ? parameter.Group + "/" : "") +
-                          parameter.Name;
-            
-            parameters.Add(name, parameter.Value);
+            string name = parameter.Name;
+            if (!string.IsNullOrWhiteSpace(parameter.Group))
+                name = $"{parameter.Group}/{name}";
+            if (FullColumnHeaderName)
+                name = $"{prefix}/{name}";
+            if (!parameters.ContainsKey(name))
+                parameters.Add(name, parameter.Value);
+        }
+
+        if (run is TestStepRun steprun)
+        {
+            TestRun? parentRun = null;
+            if (_stepRuns.TryGetValue(steprun.Parent, out var parentStepRun))
+            {
+                parentRun = parentStepRun;
+            }
+            else if (Include.HasFlag(Include.PlanParameters) && _planRuns.TryGetValue(steprun.Parent, out var planRun))
+            {
+                parentRun = planRun;
+            }
+
+            if (parentRun != null)
+            {
+                var parentParams = CreateParameters("Plan", parentRun, table);
+                foreach (var kvp in parentParams)
+                {
+                    if (!parameters.ContainsKey(kvp.Key))
+                        parameters.Add(kvp.Key, kvp.Value);
+                }
+            }
+
         }
         return parameters;
     }

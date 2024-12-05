@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using OpenTap;
 
 namespace Spreadsheet;
 
@@ -16,7 +16,7 @@ public sealed class Spreadsheet : IDisposable
     private readonly Dictionary<string?, SheetTab> _sheetList = new();
     private readonly bool _isTemplate;
 
-    public Spreadsheet(string path, string planSheetName, bool includePlanSheet, bool isTemplate)
+    public Spreadsheet(string path, bool includePlanSheet, bool isTemplate)
     {
         _isTemplate = isTemplate;
         FilePath = Path.GetFullPath(path);
@@ -26,21 +26,37 @@ public sealed class Spreadsheet : IDisposable
             Directory.CreateDirectory(dirPath);
         }
 
-        if (isTemplate)
+        if (File.Exists(path))
         {
             _document = SpreadsheetDocument.Open(path, true);
         }
         else
         {
-            _document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
+            if (isTemplate)
+            {
+                _document = SpreadsheetDocument.Open(path, true);
+            }
+            else
+            {
+                _document = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook);
+            } 
         }
+        
         if (_document.WorkbookPart is null)
         {
             _document.AddWorkbookPart().Workbook = new Workbook();
         }
         _workbook = _document.WorkbookPart!;
-        
-        PlanSheet = GetSheet(planSheetName, !includePlanSheet);
+
+        { /* Read existing sheets */
+            Sheets sheets = _workbook.Workbook.GetFirstChild<Sheets>() ?? new Sheets();
+            var sheetList = sheets.Elements<Sheet>().ToArray();
+            foreach (Sheet sht in sheetList)
+            {
+                _sheetList.Add(sht.Name, new SheetTab(_workbook, sht.Name, true));
+            }
+        }
+        PlanSheet = GetSheet("Runs Summary", !includePlanSheet);
     }
     
     public string FilePath { get; }

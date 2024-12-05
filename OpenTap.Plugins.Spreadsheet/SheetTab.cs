@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 
@@ -218,21 +217,27 @@ public sealed class SheetTab
 
     private static string CreateCellReference(uint columnIndex, uint rowIndex)
     {
-        const uint max = 'Z' - 'A' + 1;
-        string reference = (char)('A' + (columnIndex - 1) % max) + "";
-        if (columnIndex > max)
+        const int max = 'Z' - 'A' + 1;
+        int col = (int)columnIndex;
+        if (col <= 0)
+            throw new IndexOutOfRangeException($"Column index must be greater than 0.");
+        if (col > 16384 /* XFD, the max column value microsoft excel allows */)
         {
-            reference = (char)('A' + columnIndex / max - 1) + reference;
+            throw new IndexOutOfRangeException("Cannot handle this many columns.");
         }
-        if (columnIndex > max * max)
+
+        string reference = "";
+        while (col > 0)
         {
-            reference = (char)('A' + columnIndex / (max * max) - 1) + reference;
-        }
-        if (columnIndex > max * max * max)
-        {
-            throw new Exception("Cannot handle this many columns.");
-        }
-        return reference + rowIndex;
+            int digit = (col - 1) % max;
+            char ch = (char)('A' + digit);
+            reference = ch + reference;
+            // base26digits.Insert(0, i);
+            col = (col - 1) / max;
+        } 
+        
+        reference += rowIndex; 
+        return reference;
     }
 
     private static void ParseReference(string? reference, out uint column, out uint row)
